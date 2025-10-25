@@ -1,0 +1,156 @@
+{
+    "monthly_summary": [
+        {
+            "Month": "2024-05",
+            "Income": 1800.0,
+            "Expense": 1.0,
+            "Spending Ratio (%)": 0.05555555555555555
+        },
+        {
+            "Month": "2024-06",
+            "Income": 360.0,
+            "Expense": 476.0,
+            "Spending Ratio (%)": 132.22222222222223
+        },
+        {
+            "Month": "2024-07",
+            "Income": 65.0,
+            "Expense": 100.0,
+            "Spending Ratio (%)": 153.84615384615387
+        },
+        {
+            "Month": "2024-08",
+            "Income": 250.0,
+            "Expense": 200.0,
+            "Spending Ratio (%)": 80.0
+        },
+        {
+            "Month": "2024-09",
+            "Income": 15000.0,
+            "Expense": 2000.0,
+            "Spending Ratio (%)": 13.333333333333334
+        },
+        {
+            "Month": "2024-10",
+            "Income": 0.0,
+            "Expense": 0.0,
+            "Spending Ratio (%)": 0.0
+        },
+        {
+            "Month": "2024-11",
+            "Income": 7020.0,
+            "Expense": 25264.0,
+            "Spending Ratio (%)": 359.88603988603984
+        },
+        {
+            "Month": "2024-12",
+            "Income": 498.0,
+            "Expense": 0.0,
+            "Spending Ratio (%)": 0.0
+        },
+        {
+            "Month": "2025-01",
+            "Income": 249.0,
+            "Expense": 0.0,
+            "Spending Ratio (%)": 0.0
+        },
+        {
+            "Month": "2025-02",
+            "Income": 249.0,
+            "Expense": 59.0,
+            "Spending Ratio (%)": 23.694779116465863
+        },
+        {
+            "Month": "2025-03",
+            "Income": 4684.0,
+            "Expense": 4464.0,
+            "Spending Ratio (%)": 95.30315969257045
+        },
+        {
+            "Month": "2025-04",
+            "Income": 646.0,
+            "Expense": 2015.0,
+            "Spending Ratio (%)": 311.91950464396285
+        },
+        {
+            "Month": "2025-05",
+            "Income": 4131.1900000000005,
+            "Expense": 5831.1900000000005,
+            "Spending Ratio (%)": 141.15037071642794
+        },
+        {
+            "Month": "2025-06",
+            "Income": 6259.0,
+            "Expense": 5784.72,
+            "Spending Ratio (%)": 92.42243169835437
+        },
+        {
+            "Month": "2025-07",
+            "Income": 6366.0,
+            "Expense": 5223.54,
+            "Spending Ratio (%)": 82.05372290292176
+        },
+        {
+            "Month": "2025-08",
+            "Income": 2413.0,
+            "Expense": 4242.0,
+            "Spending Ratio (%)": 175.79776212184004
+        },
+        {
+            "Month": "2025-09",
+            "Income": 6067.0,
+            "Expense": 3593.0,
+            "Spending Ratio (%)": 59.22202076808966
+        },
+        {
+            "Month": "2025-10",
+            "Income": 20260.010000000002,
+            "Expense": 13418.09,
+            "Spending Ratio (%)": 66.22943424016078
+        }
+    ],
+    "weekly_summary": [
+        {
+            "week_start": "2025-09-29",
+            "week_end": "2025-10-05",
+            "Weekly Expense": 8703.4,
+            "Cumulative Expense": 8703.4,
+            "Remaining Budget": 4300.511250539399,
+            "Estimated Budget": 13003.911250539399,
+            "First Week Income": 10579.0
+        },
+        {
+            "week_start": "2025-10-06",
+            "week_end": "2025-10-12",
+            "Weekly Expense": 1366.0,
+            "Cumulative Expense": 10069.4,
+            "Remaining Budget": 2934.511250539399,
+            "Estimated Budget": 13003.911250539399,
+            "First Week Income": 10579.0
+        },
+        {
+            "week_start": "2025-10-13",
+            "week_end": "2025-10-19",
+            "Weekly Expense": 770.0,
+            "Cumulative Expense": 10839.4,
+            "Remaining Budget": 2164.511250539399,
+            "Estimated Budget": 13003.911250539399,
+            "First Week Income": 10579.0
+        },
+        {
+            "week_start": "2025-10-20",
+            "week_end": "2025-10-26",
+            "Weekly Expense": 2578.69,
+            "Cumulative Expense": 13418.09,
+            "Remaining Budget": -414.17874946060147,
+            "Estimated Budget": 13003.911250539399,
+            "First Week Income": 10579.0
+        }
+    ],
+    "weekly_alerts": [
+        "Week 2025-09-29 00:00:00 - 2025-10-05 00:00:00 (Month: 2025-10): Weekly expenditure \u20b98703.40, Estimated monthly budget \u20b913003.91 (first week income \u20b910579.00), Remaining budget \u20b94300.51",
+        "Week 2025-10-06 00:00:00 - 2025-10-12 00:00:00 (Month: 2025-10): Weekly expenditure \u20b91366.00, Estimated monthly budget \u20b913003.91 (first week income \u20b910579.00), Remaining budget \u20b92934.51",
+        "Week 2025-10-13 00:00:00 - 2025-10-19 00:00:00 (Month: 2025-10): Weekly expenditure \u20b9770.00, Estimated monthly budget \u20b913003.91 (first week income \u20b910579.00), Remaining budget \u20b92164.51",
+        "Week 2025-10-20 00:00:00 - 2025-10-26 00:00:00 (Month: 2025-10): Weekly expenditure \u20b92578.69, Estimated monthly budget \u20b913003.91 (first week income \u20b910579.00), Remaining budget \u20b9-414.18 \u26a0\ufe0f You have exceeded your estimated monthly budget! Please adjust spending."
+    ]
+}
