@@ -34,3 +34,13 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Ignore all CSV files
+*.csv
+
+# Ignore temporary files
+tempCodeRunnerFile.py
+
+# Ignore Python cache
+__pycache__/
+*.pyc
