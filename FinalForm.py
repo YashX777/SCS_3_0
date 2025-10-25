@@ -1,13 +1,10 @@
 import pandas as pd
 import re
 
-# Load filtered SMS CSV
-df = pd.read_csv("sms_transactions.csv")  # replace with your CSV path
+df = pd.read_csv("sms_transactions.csv")
 
-# 1️⃣ Parse Date (YYYY-MM-DD)
 df['date'] = pd.to_datetime(df['date'], utc=True, errors='coerce').dt.date
 
-# 2️⃣ Extract Amount
 def extract_amount(text):
     if pd.isna(text):
         return None
@@ -16,7 +13,6 @@ def extract_amount(text):
         return float(m.group(1).replace(',', ''))
     return None
 
-# 3️⃣ Determine Transaction Type
 def extract_type(text):
     if pd.isna(text):
         return 'unknown'
@@ -28,11 +24,9 @@ def extract_type(text):
     else:
         return 'unknown'
 
-# 4️⃣ Extract Description (Person / Company)
 def extract_description(text):
     if pd.isna(text):
         return None
-    # Look for 'To <NAME>' or 'From <NAME>'
     m = re.search(r'\bto\s+([A-Z][A-Z\s]+)', text, re.IGNORECASE)
     if m:
         return m.group(1).title().strip()
@@ -41,9 +35,6 @@ def extract_description(text):
         return m.group(1).title().strip()
     return None
 
-# 5️⃣ Categorize Transaction
-
-# Standard keyword-based mapping
 CATEGORY_KEYWORDS = {
     'upi': 'Transfer',
     'atm': 'Cash Withdrawal',
@@ -61,7 +52,6 @@ CATEGORY_KEYWORDS = {
     'petrol': 'Fuel'
 }
 
-# Payee-specific overrides (substring match)
 PAYEE_CATEGORY_OVERRIDE = {
     'kamdhenu milk distributor': 'Food',
     'spotify': 'Subscription',
@@ -75,15 +65,14 @@ PAYEE_CATEGORY_OVERRIDE = {
     'uber': 'Travel',
     'vijayanand': 'Travel',
     'recharge': 'Bills',
+    'INOX': 'Entertainment',
 }
 
 def categorize(text, description):
     desc_lower = (description or '').lower()
-    # Check payee override
     for payee, cat in PAYEE_CATEGORY_OVERRIDE.items():
         if payee in desc_lower:
             return cat
-    # Keyword-based fallback
     if pd.isna(text):
         return 'Other'
     text_lower = text.lower()
@@ -92,7 +81,6 @@ def categorize(text, description):
             return v
     return 'Other'
 
-# 6️⃣ Apply functions to DataFrame
 df['amount'] = df['body'].apply(extract_amount)
 df['type'] = df['body'].apply(extract_type)
 df['description'] = df['body'].apply(extract_description)
@@ -100,6 +88,6 @@ df['category'] = df.apply(lambda row: categorize(row['body'], row['description']
 
 df_final = df[['date', 'description', 'amount', 'type', 'category']]
 
-df_final.to_csv("structured_transactions.csv", index=False, quoting=1)  # QUOTE_ALL
+df_final.to_csv("structured_transactions.csv", index=False, quoting=1)
 
 print("Structured transactions saved to structured_transactions.csv")
