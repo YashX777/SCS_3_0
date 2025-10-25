@@ -1,44 +1,69 @@
 import React, { useContext } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Switch } from 'react-native';
 import { ThemeContext } from '../contexts/ThemeContext';
+import { UserContext } from '../contexts/UserContext';
 
-const logo = require('../../assets/images/main.jpeg');
+const logo = require('../../assets/images/empty.jpeg');
 
 export default function TopBar({ currentRoute, onNavigate }) {
   const { theme, toggleTheme } = useContext(ThemeContext);
+  const { user } = useContext(UserContext); // user object with photo (Google URL) if logged in
   const styles = themedStyles(theme);
 
   return (
     <View style={styles.container}>
+      {/* Left logo and title */}
       <View style={styles.left}>
         <Image source={logo} style={styles.logo} />
         <Text style={styles.title}>FinTrack</Text>
       </View>
 
+      {/* Theme toggle */}
       <View style={styles.right}>
         <Switch value={theme === 'dark'} onValueChange={toggleTheme} />
       </View>
 
+      {/* Bottom navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity 
           onPress={() => onNavigate('Home')} 
           style={[styles.navBtn, currentRoute === 'Home' && styles.activeNavBtn]}>
           <Text style={[styles.navText, currentRoute === 'Home' && styles.activeNavText]}>Home</Text>
         </TouchableOpacity>
+
         <TouchableOpacity 
           onPress={() => onNavigate('Transactions')} 
           style={[styles.navBtn, currentRoute === 'Transactions' && styles.activeNavBtn]}>
           <Text style={[styles.navText, currentRoute === 'Transactions' && styles.activeNavText]}>Transactions</Text>
         </TouchableOpacity>
+
         <TouchableOpacity 
           onPress={() => onNavigate('Categorize')} 
           style={[styles.navBtn, currentRoute === 'Categorize' && styles.activeNavBtn]}>
           <Text style={[styles.navText, currentRoute === 'Categorize' && styles.activeNavText]}>Categories</Text>
         </TouchableOpacity>
+
+        {/* Profile tab */}
         <TouchableOpacity 
           onPress={() => onNavigate('Profile')} 
           style={[styles.navBtn, currentRoute === 'Profile' && styles.activeNavBtn]}>
-          <Text style={[styles.navText, currentRoute === 'Profile' && styles.activeNavText]}>Profile</Text>
+          
+          {user?.photo ? (
+            // Google profile photo
+            <Image 
+              source={{ uri: user.photo }} 
+              style={[
+                styles.profileImage, 
+                currentRoute === 'Profile' && styles.activeProfileImage
+              ]} 
+            />
+          ) : (
+            // Default avatar (circle + semicircle)
+            <View style={styles.defaultAvatar}>
+              <View style={styles.head} />
+              <View style={styles.body} />
+            </View>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -56,14 +81,14 @@ const themedStyles = (theme) =>
     left: { 
       flexDirection: 'row', 
       alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 8,
       paddingVertical: 8,
     },
     logo: { 
-      width: 32, 
-      height: 32, 
-      resizeMode: 'cover', 
-      borderRadius: 6 
+      width: 50, 
+      height: 50, 
+      resizeMode: 'contain', 
+      borderRadius: 3 
     },
     title: { 
       marginLeft: 8, 
@@ -87,6 +112,8 @@ const themedStyles = (theme) =>
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     activeNavBtn: {
       backgroundColor: theme === 'dark' ? '#444' : '#eee',
@@ -98,5 +125,37 @@ const themedStyles = (theme) =>
     activeNavText: {
       color: theme === 'dark' ? '#fff' : '#000',
       fontWeight: '600',
+    },
+    // Google profile image
+    profileImage: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme === 'dark' ? '#fff' : '#333',
+    },
+    activeProfileImage: {
+      borderColor: theme === 'dark' ? '#6DA06F' : '#4a8f4f', // highlight when active
+    },
+    // Default avatar
+    defaultAvatar: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    head: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: theme === 'dark' ? '#ccc' : '#666',
+    },
+    body: {
+      width: 18,
+      height: 10,
+      borderTopLeftRadius: 9,
+      borderTopRightRadius: 9,
+      backgroundColor: theme === 'dark' ? '#ccc' : '#666',
+      marginTop: 2,
     },
   });
