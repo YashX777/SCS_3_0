@@ -98,10 +98,8 @@ df['type'] = df['body'].apply(extract_type)
 df['description'] = df['body'].apply(extract_description)
 df['category'] = df.apply(lambda row: categorize(row['body'], row['description']), axis=1)
 
-# Keep only desired columns
 df_final = df[['date', 'description', 'amount', 'type', 'category']]
 
-# Save structured CSV
 df_final.to_csv("structured_transactions.csv", index=False, quoting=1)  # QUOTE_ALL
 
 print("Structured transactions saved to structured_transactions.csv")
