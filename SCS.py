@@ -3,7 +3,9 @@ import numpy as np
 import re
 import matplotlib.pyplot as plt
 import json
+from datetime import datetime, timedelta
 
+# Load CSV
 df = pd.read_csv("structured_transactions.csv")
 df['date'] = pd.to_datetime(df['date'])
 df['month'] = df['date'].dt.to_period('M')
@@ -22,14 +24,14 @@ summary.reset_index(inplace=True)
 summary.columns = ['Month', 'Income', 'Expense', 'Spending Ratio (%)']
 print(summary)
 
-# Current month weekly alert system
-current_month = '2025-10'  # change dynamically for testing
+# Automatically get current month
+current_month = pd.Timestamp.now().to_period('M')
 df_current = df[df['month'] == current_month].copy()
 
 if df_current.empty:
     print(f"No data for {current_month}")
 else:
-    # past months' average spending ratio
+    # Past months' average spending ratio
     past_months = df[df['month'] < current_month].copy()
     if not past_months.empty:
         income_past = past_months[past_months['type']=='credit'].groupby('month')['amount'].sum()
@@ -62,7 +64,7 @@ else:
     weekly_alerts = []
     for _, row in weekly_current.iterrows():
         alert_msg = (
-            f"Week {row['week_start']} - {row['week_end']} (Month: {current_month}): "
+            f"Week {row['week_start'].date()} - {row['week_end'].date()} (Month: {current_month}): "
             f"Weekly expenditure ₹{row['Weekly Expense']:.2f}, "
             f"Estimated monthly budget ₹{row['Estimated Budget']:.2f} "
             f"(first week income ₹{row['First Week Income']:.2f}), "
@@ -82,9 +84,6 @@ else:
         monthly_category_expense = monthly_category_expense.sort_values(ascending=False)
         total_expense = monthly_category_expense.sum()
         
-        # Explode largest slice
-        # explode = [0.1] + [0]*(len(monthly_category_expense)-1)
-
         colors = plt.cm.tab20.colors[:len(monthly_category_expense)]
         
         # Computing percentages
