@@ -24,9 +24,13 @@ summary.reset_index(inplace=True)
 summary.columns = ['Month', 'Income', 'Expense', 'Spending Ratio (%)']
 print(summary)
 
-# Automatically get current month
+
 current_month = pd.Timestamp.now().to_period('M')
 df_current = df[df['month'] == current_month].copy()
+
+# We create 4 subplots (axes) and can use 3 of them.
+fig, axes = plt.subplots(2, 2, figsize=(16, 10))
+fig.suptitle('Complete Financial Dashboard', fontsize=20)
 
 if df_current.empty:
     print(f"No data for {current_month}")
@@ -71,13 +75,12 @@ else:
             f"Remaining budget ₹{row['Remaining Budget']:.2f}"
         )
         if row['Remaining Budget'] < 0:
-            alert_msg += " ⚠️ You have exceeded your estimated monthly budget! Please adjust spending."
+            alert_msg += " You have exceeded your estimated monthly budget! Please adjust spending."
         weekly_alerts.append(alert_msg)
 
     for alert in weekly_alerts:
         print(alert)
 
-    # Monthly expenditure pie chart
     df_current_debits = df_current[df_current['type']=='debit'].copy()
     if not df_current_debits.empty:
         monthly_category_expense = df_current_debits.groupby('category')['amount'].sum()
@@ -85,37 +88,30 @@ else:
         total_expense = monthly_category_expense.sum()
         
         colors = plt.cm.tab20.colors[:len(monthly_category_expense)]
-        
-        # Computing percentages
         percentages = 100 * monthly_category_expense / total_expense
         labels = [f"{cat} ({p:.1f}%)" for cat, p in zip(monthly_category_expense.index, percentages)]
         
-        plt.figure(figsize=(8,8))
-        plt.pie(
+        # Use axes[0, 0] to target the subplot
+        axes[0, 0].pie(
             monthly_category_expense, 
             labels=labels, 
             startangle=140, 
             colors=colors,
             wedgeprops={'edgecolor':'white', 'linewidth':1}
         )
-        plt.title(f"Expenditure Distribution by Category ({current_month})", fontsize=16)
-        plt.legend(monthly_category_expense.index, title="Categories", bbox_to_anchor=(1, 0, 0.5, 1))
-        plt.tight_layout()
-        plt.show()
+        axes[0, 0].set_title(f"Expenditure Distribution ({current_month})", fontsize=16)
+        axes[0, 0].legend(monthly_category_expense.index, title="Categories", bbox_to_anchor=(1, 0, 0.5, 1))
     else:
         print(f"No debit transactions found for {current_month} to plot pie chart.")
 
-    # weekly cumulative expenses vs budget
-    plt.figure(figsize=(10,5))
-    plt.plot(weekly_current['week_start'].astype(str), weekly_current['Cumulative Expense'], marker='o', label='Cumulative Expense')
-    plt.axhline(weekly_current['Estimated Budget'].iloc[0], color='red', linestyle='--', label='Estimated Budget')
-    plt.xticks(rotation=45)
-    plt.title(f"Weekly Cumulative Expenses vs Estimated Budget ({current_month})")
-    plt.ylabel("Amount (₹)")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
+    # Use axes[0, 1] to target the subplot
+    axes[0, 1].plot(weekly_current['week_start'].astype(str), weekly_current['Cumulative Expense'], marker='o', label='Cumulative Expense')
+    axes[0, 1].axhline(weekly_current['Estimated Budget'].iloc[0], color='red', linestyle='--', label='Estimated Budget')
+    axes[0, 1].tick_params(axis='x', rotation=45)
+    axes[0, 1].set_title(f"Weekly Cumulative Expenses vs Budget ({current_month})")
+    axes[0, 1].set_ylabel("Amount (₹)")
+    axes[0, 1].legend()
+    axes[0, 1].grid(True, alpha=0.3)
 
     #Prepare JSON output
     summary['Month'] = summary['Month'].astype(str)
@@ -136,14 +132,17 @@ else:
 
     print("Financial summary saved to JSON successfully!")
 
-#Plot monthly income vs expense
-plt.figure(figsize=(8,5))
-plt.plot(summary['Month'].astype(str), summary['Income'], marker='o', label='Income')
-plt.plot(summary['Month'].astype(str), summary['Expense'], marker='o', label='Expense')
-plt.xticks(rotation=45)
-plt.title("Monthly Income vs Expenses")
-plt.ylabel("Amount (₹)")
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
+# Use axes[1, 0] to target the subplot
+axes[1, 0].plot(summary['Month'].astype(str), summary['Income'], marker='o', label='Income')
+axes[1, 0].plot(summary['Month'].astype(str), summary['Expense'], marker='o', label='Expense')
+axes[1, 0].tick_params(axis='x', rotation=45)
+axes[1, 0].set_title("Monthly Income vs Expenses")
+axes[1, 0].set_ylabel("Amount (₹)")
+axes[1, 0].legend()
+axes[1, 0].grid(True, alpha=0.3)
+
+
+axes[1, 1].axis('off')
+
+plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to make room for the suptitle
 plt.show()
