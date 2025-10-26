@@ -1,7 +1,8 @@
-import React, { useContext, useState } from 'react';
-import { View, Text, TextInput, Button, Image, StyleSheet, ScrollView } from 'react-native';
+import React, { useContext, useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, Image, StyleSheet, ScrollView, Alert } from 'react-native';
 import { UserContext } from '../contexts/UserContext';
 import { ThemeContext } from '../contexts/ThemeContext';
+import { getDBConnection, createUserTable, saveUser, getUser } from '../utils/db';
 
 const defaultPhoto = require('../../assets/images/empty.jpeg');
 
@@ -10,21 +11,77 @@ export default function ProfileScreen() {
   const { theme } = useContext(ThemeContext);
   const styles = themedStyles(theme);
 
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [photo, setPhoto] = useState(''); // store photo URI as string
+  const [db, setDb] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const save = () => {
-    setUser((prev) => ({ ...prev, name, email, photo: prev?.photo || defaultPhoto }));
+  // --- Initialize DB and load stored user ---
+  useEffect(() => {
+    (async () => {
+      try {
+        const dbConn = await getDBConnection();
+        await createUserTable(dbConn);
+        setDb(dbConn);
+
+        const storedUser = await getUser(dbConn);
+        if (storedUser) {
+          setName(storedUser.name || '');
+          setEmail(storedUser.email || '');
+          setPhoto(storedUser.photo || '');
+          setUser(storedUser);
+        }
+      } catch (err) {
+        console.log('Error initializing DB:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // --- Save profile ---
+  const saveProfile = async () => {
+    try {
+      if (!db) {
+        Alert.alert('Database not ready yet');
+        return;
+      }
+      const updatedUser = {
+        id: 1,
+        name,
+        email,
+        photo: photo || '', // must be string
+      };
+      await saveUser(db, updatedUser);
+      setUser(updatedUser);
+      Alert.alert('Profile saved successfully!');
+      console.log('Profile saved:', updatedUser);
+    } catch (err) {
+      console.log('Error saving profile:', err);
+      Alert.alert('Error saving profile', err.message);
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <Text style={{ color: theme === 'dark' ? '#fff' : '#000' }}>Loading Profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme === 'dark' ? '#121212' : '#fff' }}>
       <ScrollView contentContainerStyle={[styles.container, { flexGrow: 1 }]}>
         <View style={styles.photoContainer}>
-          <Image source={user?.photo || defaultPhoto} style={styles.photo} />
+          <Image
+            source={photo ? { uri: photo } : defaultPhoto} // string URI or default
+            style={styles.photo}
+          />
         </View>
 
-        <Text style={styles.title}>Hello, {user?.name || 'there'}!</Text>
+        <Text style={styles.title}>Hello, {name || 'there'}!</Text>
 
         <View style={styles.form}>
           <Text style={styles.label}>Name</Text>
@@ -48,12 +105,16 @@ export default function ProfileScreen() {
           />
 
           <View style={styles.btn}>
-            <Button title="Save Profile" onPress={save} color={theme === 'dark' ? '#6DA06F' : '#4a8f4f'} />
+            <Button
+              title="Save Profile"
+              onPress={saveProfile}
+              color={theme === 'dark' ? '#6DA06F' : '#4a8f4f'}
+            />
           </View>
         </View>
 
         <Text style={styles.hint}>
-          Profile is stored in-memory. Add AsyncStorage to persist across launches.
+          Profile is stored in SQLite and will persist across app launches.
         </Text>
       </ScrollView>
     </View>
@@ -67,7 +128,7 @@ const themedStyles = (theme) =>
       alignItems: 'center',
     },
     photoContainer: {
-      backgroundColor: '#f2fce7', // keeps brand look
+      backgroundColor: '#f2fce7',
       padding: 16,
       borderRadius: 30,
       marginBottom: 20,
@@ -116,5 +177,10 @@ const themedStyles = (theme) =>
       fontSize: 13,
       textAlign: 'center',
       fontStyle: 'italic',
+    },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
   });

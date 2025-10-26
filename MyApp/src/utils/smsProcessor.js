@@ -132,7 +132,7 @@ const CATEGORY_KEYWORDS = {
   'swiggy': 'Food',
   'restaurant': 'Food',
   'netflix': 'Entertainment',
-  'spotify': 'Entertainment', // Added
+  'spotify': 'Subscription', // Added
   'movie': 'Entertainment',
   'inox': 'Entertainment',
   'irctc': 'Travel',
@@ -151,13 +151,13 @@ const CATEGORY_KEYWORDS = {
 
 const PAYEE_CATEGORY_OVERRIDE = {
   // Use lowercase keys for easier matching
-  'kamdhenu milk distributor': 'Groceries', // Changed from Food
+  'kamdhenu milk distributor': 'Food', // Changed from Food
   'spotify': 'Subscription', // Different from keyword category
   'zomato': 'Food',
   'swiggy': 'Food',
   'amazon': 'Shopping',
   'flipkart': 'Shopping',
-  'netflix': 'Subscription', // Changed from Entertainment
+  'netflix': 'Entertainment', // Changed from Entertainment
   'irctc': 'Travel',
   'ola': 'Travel',
   'uber': 'Travel',

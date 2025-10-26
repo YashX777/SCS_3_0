@@ -10,45 +10,17 @@ import {
   ActivityIndicator,
   Linking,
   AppState,
+  Alert,
 } from 'react-native';
 import SmsAndroid from 'react-native-get-sms-android';
 import { processSmsList } from '../utils/smsProcessor';
 import {
   getDBConnection,
-  createTable,
+  createTransactionsTable,
   saveTransactions,
   getAllTransactions,
 } from '../utils/db';
 
-// --- Request SMS Permission ---
-async function requestReadSmsPermission() {
-  if (Platform.OS !== 'android') return false;
-  try {
-    const status = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.READ_SMS,
-      {
-        title: 'SMS Access Required',
-        message: 'This app needs access to your SMS messages to track transactions.',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'OK',
-      },
-    );
-
-    if (status === PermissionsAndroid.RESULTS.GRANTED) {
-      console.log('READ_SMS permission granted');
-      return true;
-    } else {
-      console.log('READ_SMS permission denied or permanently denied');
-      return false;
-    }
-  } catch (err) {
-    console.warn('Error requesting READ_SMS permission:', err);
-    return false;
-  }
-}
-
-// --- Component ---
 export default function TransactionsScreen() {
   const [db, setDb] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -56,33 +28,56 @@ export default function TransactionsScreen() {
   const [error, setError] = useState(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
 
-  // --- Setup DB on Mount ---
+  // --- Request SMS Permission ---
+  const requestReadSmsPermission = async () => {
+    if (Platform.OS !== 'android') return false;
+    try {
+      const status = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_SMS,
+        {
+          title: 'SMS Access Required',
+          message: 'This app needs access to your SMS messages to track transactions.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      return status === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn('Error requesting READ_SMS permission:', err);
+      return false;
+    }
+  };
+
+  // --- Initialize DB ---
   useEffect(() => {
     (async () => {
-      const dbConn = await getDBConnection();
-      await createTable(dbConn);
-      setDb(dbConn);
+      try {
+        const dbConn = await getDBConnection();
+        await createTransactionsTable(dbConn);
+        setDb(dbConn);
 
-      const stored = await getAllTransactions(dbConn);
-      if (stored.length > 0) {
-        console.log(`Loaded ${stored.length} transactions from DB`);
+        const stored = await getAllTransactions(dbConn);
         setTransactions(stored);
+        console.log(`Loaded ${stored.length} transactions from DB`);
+
+        await checkAndFetch(dbConn);
+      } catch (err) {
+        console.error('DB initialization error:', err);
+        setError('Failed to initialize database.');
+      } finally {
         setIsLoading(false);
       }
-
-      checkAndFetch(dbConn);
     })();
   }, []);
 
-  // --- Listen for app returning from background ---
+  // --- Listen for app coming back from background ---
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', async (state) => {
-      if (state === 'active' && Platform.OS === 'android') {
-        const hasPermission = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.READ_SMS,
-        );
+    const subscription = AppState.addEventListener('change', async state => {
+      if (state === 'active' && Platform.OS === 'android' && db) {
+        const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);
         setPermissionGranted(hasPermission);
-        if (hasPermission && db) {
+        if (hasPermission) {
           const stored = await getAllTransactions(db);
           if (stored.length === 0) fetchSms(db);
         }
@@ -91,21 +86,18 @@ export default function TransactionsScreen() {
     return () => subscription.remove();
   }, [db]);
 
-  // --- Process SMS and Save to DB ---
+  // --- Process SMS and save to DB ---
   const processAndSaveSms = async (rawMessages) => {
     try {
       const processed = processSmsList(rawMessages);
-
-      await saveTransactions(db, processed);
+      if (processed.length > 0) await saveTransactions(db, processed);
 
       const updated = await getAllTransactions(db);
       setTransactions(updated);
 
-      // ✅ Debug logs
-      console.log(`✅ Saved ${processed.length} new transactions`);
-      console.log('📦 First 5 entries from DB:', updated.slice(0, 5));
+      console.log(`✅ Saved ${processed.length} transactions`);
     } catch (e) {
-      console.error('Error saving SMS transactions:', e);
+      console.error('Error processing SMS:', e);
       setError('Failed to process SMS messages.');
     } finally {
       setIsLoading(false);
@@ -115,7 +107,7 @@ export default function TransactionsScreen() {
   // --- Fetch SMS ---
   const fetchSms = async (dbInstance = db) => {
     if (!permissionGranted || !dbInstance) {
-      setError('SMS permission is required.');
+      setError('SMS permission and database are required.');
       setIsLoading(false);
       return;
     }
@@ -124,40 +116,50 @@ export default function TransactionsScreen() {
     setError(null);
 
     const filter = { box: 'inbox', maxCount: 500 };
+    const timeout = setTimeout(() => {
+      setError('SMS fetch timed out.');
+      setIsLoading(false);
+    }, 10000); // 10s timeout
 
     SmsAndroid.list(
       JSON.stringify(filter),
       fail => {
+        clearTimeout(timeout);
         console.error('SMS fetch failed:', fail);
         setError('Failed to fetch SMS messages.');
         setIsLoading(false);
       },
       (count, smsListString) => {
-        const rawMessages = smsListString ? JSON.parse(smsListString) : [];
-        processAndSaveSms(rawMessages);
-      }
+        clearTimeout(timeout);
+        try {
+          const rawMessages = smsListString ? JSON.parse(smsListString) : [];
+          processAndSaveSms(rawMessages);
+        } catch (e) {
+          console.error('Error parsing SMS list:', e);
+          setError('Failed to parse SMS messages.');
+          setIsLoading(false);
+        }
+      },
     );
   };
 
-  // --- Check permission and fetch ---
+  // --- Check permission & fetch ---
   const checkAndFetch = async (dbInstance = db) => {
     setIsLoading(true);
     const granted = await requestReadSmsPermission();
     setPermissionGranted(granted);
 
-    if (granted) {
+    if (granted && dbInstance) {
       setError(null);
       await fetchSms(dbInstance);
     } else {
-      setError('SMS permission is required to view new transactions.');
+      setError('SMS permission is required to fetch transactions.');
       setIsLoading(false);
     }
   };
 
-  // --- UI ---
+  // --- Render ---
   const renderContent = () => {
-    console.log('permissionGranted:', permissionGranted, 'error:', error);
-
     if (isLoading) {
       return (
         <View style={styles.centered}>
@@ -194,9 +196,7 @@ export default function TransactionsScreen() {
                   {item.type === 'credit' ? '+' : '-'}₹{item.amount?.toFixed(2) ?? '0.00'}
                 </Text>
               </View>
-              <Text style={styles.description} numberOfLines={1} ellipsizeMode="tail">
-                {item.description}
-              </Text>
+              <Text style={styles.description} numberOfLines={1}>{item.description}</Text>
               <Text style={styles.category}>Category: {item.category}</Text>
             </View>
           )}
@@ -208,24 +208,16 @@ export default function TransactionsScreen() {
           }
         />
 
-        {/* Debug button to dump DB anytime */}
         <View style={{ padding: 10 }}>
           <Button
-  title="Print DB Contents"
-  onPress={async () => {
-    if (!db) {
-      console.warn('⚠️ DB is not ready yet.');
-      return;
-    }
-    try {
-      const all = await getAllTransactions(db);
-      console.log('🧾 Full DB dump:', all);
-      alert(`DB has ${all.length} transactions. Check console for details.`);
-    } catch (e) {
-      console.error('Error reading DB:', e);
-    }
-  }}
-/>
+            title="Print DB Contents"
+            onPress={async () => {
+              if (!db) return Alert.alert('DB not ready');
+              const all = await getAllTransactions(db);
+              console.log('🧾 Full DB dump:', all);
+              Alert.alert(`DB has ${all.length} transactions. Check console.`);
+            }}
+          />
         </View>
       </View>
     );
@@ -234,62 +226,17 @@ export default function TransactionsScreen() {
   return <View style={styles.container}>{renderContent()}</View>;
 }
 
-// --- Styles ---
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#555',
-  },
-  errorText: {
-    color: 'red',
-    textAlign: 'center',
-    marginBottom: 20,
-    fontSize: 16,
-  },
-  transactionItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  date: {
-    fontSize: 13,
-    color: '#666',
-  },
-  amount: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  credit: {
-    color: '#2e7d32',
-  },
-  debit: {
-    color: '#c62828',
-  },
-  description: {
-    fontSize: 15,
-    color: '#333',
-    marginBottom: 4,
-  },
-  category: {
-    fontSize: 13,
-    color: '#888',
-    fontStyle: 'italic',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  loadingText: { marginTop: 10, fontSize: 16, color: '#555' },
+  errorText: { color: 'red', textAlign: 'center', marginBottom: 20, fontSize: 16 },
+  transactionItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  date: { fontSize: 13, color: '#666' },
+  amount: { fontSize: 16, fontWeight: '600' },
+  credit: { color: '#2e7d32' },
+  debit: { color: '#c62828' },
+  description: { fontSize: 15, color: '#333', marginBottom: 4 },
+  category: { fontSize: 13, color: '#888', fontStyle: 'italic' },
 });
