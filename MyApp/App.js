@@ -10,6 +10,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import TransactionScreen from './src/screens/TransactionScreen';
 import CategorizeScreen from './src/screens/CategorizeScreen';
+import ChatScreen from './src/screens/ChatScreen';
 
 export default function App() {
   const [route, setRoute] = useState('Loading');
@@ -31,6 +32,8 @@ export default function App() {
         return <TransactionScreen />;
       case 'Categorize':
         return <CategorizeScreen />;
+      case 'Chat':
+        return <ChatScreen />;
       default:
         // Default to Home if route is unknown
         return <HomeScreen />;
