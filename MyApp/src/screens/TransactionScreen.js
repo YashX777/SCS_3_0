@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import {
   saveTransactions,
   getAllTransactions,
 } from '../utils/db';
+import { ThemeContext } from '../contexts/ThemeContext';
 
 export default function TransactionsScreen() {
   const [db, setDb] = useState(null);
@@ -27,6 +28,8 @@ export default function TransactionsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const { theme } = useContext(ThemeContext);
+  const styles = themedStyles(theme);
 
   // --- Request SMS Permission ---
   const requestReadSmsPermission = async () => {
@@ -58,6 +61,13 @@ export default function TransactionsScreen() {
         setDb(dbConn);
 
         const stored = await getAllTransactions(dbConn);
+        // sort newest first by date then id
+        stored.sort((a, b) => {
+          const ta = new Date(a.date).getTime() || 0;
+          const tb = new Date(b.date).getTime() || 0;
+          if (tb !== ta) return tb - ta;
+          return (b.id || 0) - (a.id || 0);
+        });
         setTransactions(stored);
         console.log(`Loaded ${stored.length} transactions from DB`);
 
@@ -79,6 +89,14 @@ export default function TransactionsScreen() {
         setPermissionGranted(hasPermission);
         if (hasPermission) {
           const stored = await getAllTransactions(db);
+          // sort newest first
+          stored.sort((a, b) => {
+            const ta = new Date(a.date).getTime() || 0;
+            const tb = new Date(b.date).getTime() || 0;
+            if (tb !== ta) return tb - ta;
+            return (b.id || 0) - (a.id || 0);
+          });
+          setTransactions(stored);
           if (stored.length === 0) fetchSms(db);
         }
       }
@@ -93,6 +111,12 @@ export default function TransactionsScreen() {
       if (processed.length > 0) await saveTransactions(db, processed);
 
       const updated = await getAllTransactions(db);
+      updated.sort((a, b) => {
+        const ta = new Date(a.date).getTime() || 0;
+        const tb = new Date(b.date).getTime() || 0;
+        if (tb !== ta) return tb - ta;
+        return (b.id || 0) - (a.id || 0);
+      });
       setTransactions(updated);
 
       console.log(`✅ Saved ${processed.length} transactions`);
@@ -163,7 +187,7 @@ export default function TransactionsScreen() {
     if (isLoading) {
       return (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color={theme === 'dark' ? '#fff' : '#0000ff'} />
           <Text style={styles.loadingText}>Loading Transactions...</Text>
         </View>
       );
@@ -184,7 +208,7 @@ export default function TransactionsScreen() {
     }
 
     return (
-      <View style={{ flex: 1 }}>
+      <View style={styles.content}>
         <FlatList
           data={transactions}
           keyExtractor={(item) => item.id.toString()}
@@ -225,18 +249,19 @@ export default function TransactionsScreen() {
 
   return <View style={styles.container}>{renderContent()}</View>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  loadingText: { marginTop: 10, fontSize: 16, color: '#555' },
-  errorText: { color: 'red', textAlign: 'center', marginBottom: 20, fontSize: 16 },
-  transactionItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  date: { fontSize: 13, color: '#666' },
-  amount: { fontSize: 16, fontWeight: '600' },
-  credit: { color: '#2e7d32' },
-  debit: { color: '#c62828' },
-  description: { fontSize: 15, color: '#333', marginBottom: 4 },
-  category: { fontSize: 13, color: '#888', fontStyle: 'italic' },
-});
+const themedStyles = (theme) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme === 'dark' ? '#0b0b0b' : '#fff' },
+    content: { flex: 1 },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    loadingText: { marginTop: 10, fontSize: 16, color: theme === 'dark' ? '#ddd' : '#555' },
+    errorText: { color: theme === 'dark' ? '#ff8a80' : 'red', textAlign: 'center', marginBottom: 20, fontSize: 16 },
+    transactionItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: theme === 'dark' ? '#222' : '#eee', backgroundColor: 'transparent' },
+    row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    date: { fontSize: 13, color: theme === 'dark' ? '#bbb' : '#666' },
+    amount: { fontSize: 16, fontWeight: '600', color: theme === 'dark' ? '#fff' : '#111' },
+    credit: { color: theme === 'dark' ? '#81c784' : '#2e7d32' },
+    debit: { color: theme === 'dark' ? '#ef9a9a' : '#c62828' },
+    description: { fontSize: 15, color: theme === 'dark' ? '#ddd' : '#333', marginBottom: 4 },
+    category: { fontSize: 13, color: theme === 'dark' ? '#bbb' : '#888', fontStyle: 'italic' },
+  });
