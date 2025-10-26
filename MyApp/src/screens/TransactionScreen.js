@@ -7,19 +7,22 @@ import {
   Platform,
   FlatList,
   StyleSheet,
-  ActivityIndicator, // Import ActivityIndicator for loading state
-  Linking, // To open app settings if permission is permanently denied
-  AppState, // To re-check permission when app returns to foreground
+  ActivityIndicator,
+  Linking,
+  AppState,
 } from 'react-native';
 import SmsAndroid from 'react-native-get-sms-android';
-import { processSmsList } from '../utils/smsProcessor'; // Adjust path if needed
+import { processSmsList } from '../utils/smsProcessor';
+import {
+  getDBConnection,
+  createTable,
+  saveTransactions,
+  getAllTransactions,
+} from '../utils/db';
 
-// --- Permission Request Logic ---
+// --- Request SMS Permission ---
 async function requestReadSmsPermission() {
-  if (Platform.OS !== 'android') {
-    // SMS reading is only available on Android
-    return false;
-  }
+  if (Platform.OS !== 'android') return false;
   try {
     const status = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.READ_SMS,
@@ -31,19 +34,14 @@ async function requestReadSmsPermission() {
         buttonPositive: 'OK',
       },
     );
+
     if (status === PermissionsAndroid.RESULTS.GRANTED) {
       console.log('READ_SMS permission granted');
       return true;
-    } else if (status === PermissionsAndroid.RESULTS.DENIED) {
-      console.log('READ_SMS permission denied');
-      return false;
-    } else if (status === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-      console.log('READ_SMS permission denied permanently');
-      // Optionally guide user to settings
-      // Linking.openSettings();
+    } else {
+      console.log('READ_SMS permission denied or permanently denied');
       return false;
     }
-    return false;
   } catch (err) {
     console.warn('Error requesting READ_SMS permission:', err);
     return false;
@@ -52,15 +50,71 @@ async function requestReadSmsPermission() {
 
 // --- Component ---
 export default function TransactionsScreen() {
+  const [db, setDb] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true); // Start loading initially
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
 
-  // --- Fetch SMS Data ---
-  const fetchSms = async () => {
-    // Only proceed if permission is granted
-    if (!permissionGranted) {
+  // --- Setup DB on Mount ---
+  useEffect(() => {
+    (async () => {
+      const dbConn = await getDBConnection();
+      await createTable(dbConn);
+      setDb(dbConn);
+
+      const stored = await getAllTransactions(dbConn);
+      if (stored.length > 0) {
+        console.log(`Loaded ${stored.length} transactions from DB`);
+        setTransactions(stored);
+        setIsLoading(false);
+      }
+
+      checkAndFetch(dbConn);
+    })();
+  }, []);
+
+  // --- Listen for app returning from background ---
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (state) => {
+      if (state === 'active' && Platform.OS === 'android') {
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.READ_SMS,
+        );
+        setPermissionGranted(hasPermission);
+        if (hasPermission && db) {
+          const stored = await getAllTransactions(db);
+          if (stored.length === 0) fetchSms(db);
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [db]);
+
+  // --- Process SMS and Save to DB ---
+  const processAndSaveSms = async (rawMessages) => {
+    try {
+      const processed = processSmsList(rawMessages);
+
+      await saveTransactions(db, processed);
+
+      const updated = await getAllTransactions(db);
+      setTransactions(updated);
+
+      // ✅ Debug logs
+      console.log(`✅ Saved ${processed.length} new transactions`);
+      console.log('📦 First 5 entries from DB:', updated.slice(0, 5));
+    } catch (e) {
+      console.error('Error saving SMS transactions:', e);
+      setError('Failed to process SMS messages.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- Fetch SMS ---
+  const fetchSms = async (dbInstance = db) => {
+    if (!permissionGranted || !dbInstance) {
       setError('SMS permission is required.');
       setIsLoading(false);
       return;
@@ -69,91 +123,41 @@ export default function TransactionsScreen() {
     setIsLoading(true);
     setError(null);
 
-    const filter = {
-      box: 'inbox', // 'inbox' (received), 'sent', 'draft'
-      // You can add more filters here if needed:
-      // indexFrom: 0, // start from index 0
-      maxCount: 500, // Fetch a reasonable number for processing
-    };
+    const filter = { box: 'inbox', maxCount: 500 };
 
     SmsAndroid.list(
       JSON.stringify(filter),
-      (fail) => {
-        console.error('Failed to get SMS list: ' + fail);
-        setError('Failed to fetch SMS messages. Please ensure the app has SMS permission.');
+      fail => {
+        console.error('SMS fetch failed:', fail);
+        setError('Failed to fetch SMS messages.');
         setIsLoading(false);
       },
       (count, smsListString) => {
-        console.log('Raw SMS Count received: ', count);
-        try {
-          // Guard against empty or invalid JSON strings
-          const rawMessages = smsListString ? JSON.parse(smsListString) : [];
-          if (!Array.isArray(rawMessages)) {
-             throw new Error("Received invalid data format for SMS list.");
-          }
-          console.log(`Processing ${rawMessages.length} raw messages...`);
-          // Process the raw messages using our utility function
-          const processedData = processSmsList(rawMessages);
-          console.log('Processed Transactions Count:', processedData.length);
-          setTransactions(processedData);
-        } catch (e) {
-          console.error('Error parsing or processing SMS list: ', e);
-          setError('Failed to process SMS messages.');
-        } finally {
-          setIsLoading(false);
-        }
-      },
+        const rawMessages = smsListString ? JSON.parse(smsListString) : [];
+        processAndSaveSms(rawMessages);
+      }
     );
   };
 
-  // --- Check Permission on Initial Load and App State Change ---
-  const checkAndFetch = async () => {
-     setIsLoading(true); // Show loading while checking/requesting
-     const granted = await requestReadSmsPermission();
-     setPermissionGranted(granted);
-     if (granted) {
-       fetchSms(); // Fetch only if permission is confirmed granted
-     } else {
-        setError('SMS permission is required to view transactions.');
-        setIsLoading(false); // Stop loading if permission not granted
-     }
+  // --- Check permission and fetch ---
+  const checkAndFetch = async (dbInstance = db) => {
+    setIsLoading(true);
+    const granted = await requestReadSmsPermission();
+    setPermissionGranted(granted);
+
+    if (granted) {
+      setError(null);
+      await fetchSms(dbInstance);
+    } else {
+      setError('SMS permission is required to view new transactions.');
+      setIsLoading(false);
+    }
   };
 
-
-  useEffect(() => {
-    // Initial check and fetch
-    checkAndFetch();
-
-    // Add listener for app state changes (e.g., returning from background)
-    // This helps re-check permission if the user granted it in settings
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
-        console.log('App has come to the foreground!');
-         // Re-check permission status without necessarily re-requesting immediately
-        PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS).then(
-            (hasPermission) => {
-                setPermissionGranted(hasPermission);
-                if (hasPermission && transactions.length === 0 && !isLoading) {
-                    // Fetch SMS only if permission is now granted and we don't have data
-                    fetchSms();
-                } else if (!hasPermission) {
-                     setError('SMS permission is required.');
-                     setTransactions([]); // Clear data if permission revoked
-                     setIsLoading(false);
-                }
-            }
-        );
-      }
-    });
-
-    // Cleanup listener on component unmount
-    return () => {
-      subscription.remove();
-    };
-  }, []); // Run only once on mount
-
-  // --- Render Logic ---
+  // --- UI ---
   const renderContent = () => {
+    console.log('permissionGranted:', permissionGranted, 'error:', error);
+
     if (isLoading) {
       return (
         <View style={styles.centered}>
@@ -163,49 +167,67 @@ export default function TransactionsScreen() {
       );
     }
 
-    if (error) {
+    if (error && !permissionGranted) {
       return (
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
-          {!permissionGranted && Platform.OS === 'android' && (
+          {Platform.OS === 'android' && (
             <>
-              <Button title="Grant SMS Permission" onPress={checkAndFetch} />
+              <Button title="Grant SMS Permission" onPress={() => checkAndFetch(db)} />
               <Button title="Open App Settings" onPress={Linking.openSettings} />
             </>
           )}
-           {permissionGranted && <Button title="Retry Fetching SMS" onPress={fetchSms} />}
         </View>
       );
     }
 
     return (
-      <FlatList
-        data={transactions}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.transactionItem}>
-            <View style={styles.row}>
-              <Text style={styles.date}>{item.date}</Text>
-              <Text style={[styles.amount, item.type === 'credit' ? styles.credit : styles.debit]}>
-                {item.type === 'credit' ? '+' : '-'}₹{item.amount?.toFixed(2) ?? '0.00'}
+      <View style={{ flex: 1 }}>
+        <FlatList
+          data={transactions}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <View style={styles.transactionItem}>
+              <View style={styles.row}>
+                <Text style={styles.date}>{item.date}</Text>
+                <Text style={[styles.amount, item.type === 'credit' ? styles.credit : styles.debit]}>
+                  {item.type === 'credit' ? '+' : '-'}₹{item.amount?.toFixed(2) ?? '0.00'}
+                </Text>
+              </View>
+              <Text style={styles.description} numberOfLines={1} ellipsizeMode="tail">
+                {item.description}
               </Text>
+              <Text style={styles.category}>Category: {item.category}</Text>
             </View>
-            <Text style={styles.description} numberOfLines={1} ellipsizeMode="tail">
-              {item.description}
-            </Text>
-            <Text style={styles.category}>Category: {item.category}</Text>
-          </View>
-        )}
-        ListEmptyComponent={
-          <View style={styles.centered}>
-            <Text>No transactions found in your SMS inbox.</Text>
-            <Button title="Refresh SMS" onPress={fetchSms} />
-          </View>
-        }
-        // Optional: Add pull-to-refresh
-        // onRefresh={fetchSms}
-        // refreshing={isLoading}
-      />
+          )}
+          ListEmptyComponent={
+            <View style={styles.centered}>
+              <Text>No transactions found yet.</Text>
+              <Button title="Fetch from SMS" onPress={() => fetchSms(db)} />
+            </View>
+          }
+        />
+
+        {/* Debug button to dump DB anytime */}
+        <View style={{ padding: 10 }}>
+          <Button
+  title="Print DB Contents"
+  onPress={async () => {
+    if (!db) {
+      console.warn('⚠️ DB is not ready yet.');
+      return;
+    }
+    try {
+      const all = await getAllTransactions(db);
+      console.log('🧾 Full DB dump:', all);
+      alert(`DB has ${all.length} transactions. Check console for details.`);
+    } catch (e) {
+      console.error('Error reading DB:', e);
+    }
+  }}
+/>
+        </View>
+      </View>
     );
   };
 
@@ -216,14 +238,13 @@ export default function TransactionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff', // Or use theme color
+    backgroundColor: '#fff',
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f8f8f8', // Slightly different background for centered states
   },
   loadingText: {
     marginTop: 10,
@@ -246,7 +267,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 6,
-    alignItems: 'center',
   },
   date: {
     fontSize: 13,
@@ -254,13 +274,13 @@ const styles = StyleSheet.create({
   },
   amount: {
     fontSize: 16,
-    fontWeight: '600', // Slightly bolder
+    fontWeight: '600',
   },
   credit: {
-    color: '#2e7d32', // Darker green
+    color: '#2e7d32',
   },
   debit: {
-    color: '#c62828', // Darker red
+    color: '#c62828',
   },
   description: {
     fontSize: 15,
