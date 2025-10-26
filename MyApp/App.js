@@ -1,3 +1,4 @@
+import 'react-native-reanimated';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet, View, Dimensions, Platform } from 'react-native';
@@ -7,7 +8,7 @@ import TopBar from './src/components/TopBar';
 import LoadingScreen from './src/screens/LoadingScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
-import TransactionsScreen from './src/screens/TransactionsScreen';
+import TransactionScreen from './src/screens/TransactionScreen';
 import CategorizeScreen from './src/screens/CategorizeScreen';
 
 export default function App() {
@@ -27,7 +28,7 @@ export default function App() {
       case 'Profile':
         return <ProfileScreen />;
       case 'Transactions':
-        return <TransactionsScreen />;
+        return <TransactionScreen />;
       case 'Categorize':
         return <CategorizeScreen />;
       default:
