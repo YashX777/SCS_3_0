@@ -7,3 +7,6 @@ Go to the MyApp directory
 run npm install
 run npx expo run:android
 Watch the Magic unfold
+
+Deliverables:
+https://youtu.be/LAD3AHoh0Cs?si=c5C_byD-LK_ta_LU
