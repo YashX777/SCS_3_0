@@ -9,4 +9,4 @@ run npx expo run:android
 Watch the Magic unfold
 
 Deliverables:
-https://youtu.be/LAD3AHoh0Cs?si=c5C_byD-LK_ta_LU
+https://drive.google.com/drive/folders/10s7TZOU283dEwR2Dft6cKOiTCUM2n0Dq?usp=sharing
